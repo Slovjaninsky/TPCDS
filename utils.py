@@ -1,5 +1,5 @@
 import os
-from pyspark.sql import SparkSession
+from pyspark.sql import SparkSession, functions
 from CustomTPCDS import CustomTPCDS
 
 def create_spark_session(name: str) -> SparkSession:
@@ -8,10 +8,12 @@ def create_spark_session(name: str) -> SparkSession:
         .appName(name) \
         .master('local[*]') \
         .config("spark.driver.memory", "16g") \
+        .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer") \
         .config("spark.jars.packages",
                 ",".join([
                 "io.delta:delta-spark_2.12:3.2.0",
-                "ch.cern.sparkmeasure:spark-measure_2.12:0.27"
+                "ch.cern.sparkmeasure:spark-measure_2.12:0.27",
+                "org.apache.hudi:hudi-spark3.5-bundle_2.12:0.15.0"
             ])) \
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
         .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
@@ -46,7 +48,6 @@ def load_data(
     return tpcds
 
 def convert_parquet_to_delta(spark_session: SparkSession, source_path: str, destination_path: str):
-
     if os.path.exists(destination_path):
         return
     
@@ -58,10 +59,35 @@ def convert_parquet_to_delta(spark_session: SparkSession, source_path: str, dest
         df = spark_session.read.format('parquet').load(parquet_table_path)
         df.write.format('delta').mode('overwrite').save(delta_table_path)
 
+def convert_parquet_to_hudi(spark_session: SparkSession, source_path: str, destination_path: str):
+    if os.path.exists(destination_path):
+        return
+    
+    tables = [t for t in os.listdir(source_path)]
+    hudi_uri = f'file:///{os.path.abspath(destination_path)}'
+
+    for table in tables:
+        parquet_table_path = os.path.join(source_path, table)
+        hudi_table_path = os.path.join(hudi_uri, table)
+        df = spark_session.read.format('parquet').load(parquet_table_path)
+        df = df.withColumn("hudi_pk", functions.expr("uuid()"))
+        hudi_options = {
+            'hoodie.table.name': table,
+            'hoodie.datasource.write.recordkey.field': 'hudi_pk',
+            'hoodie.datasource.write.precombine.field': 'hudi_pk',
+            'hoodie.datasource.write.operation': 'bulk_insert',
+            # 'hoodie.datasource.write.keygenerator.class': 'org.apache.hudi.keygen.NonpartitionedKeyGenerator',
+            # 'hoodie.datasource.write.partitionpath.field': ''
+        }
+        df.write.format('hudi').options(**hudi_options).mode('overwrite').save(hudi_table_path)
+
 def get_datasource(spark_session: SparkSession, format: str, source_path: str, destination_path: str) -> str:
     match format:
         case 'delta':
             convert_parquet_to_delta(spark_session=spark_session, source_path=source_path, destination_path=destination_path)
+            return destination_path
+        case 'hudi':
+            convert_parquet_to_hudi(spark_session=spark_session, source_path=source_path, destination_path=destination_path)
             return destination_path
         case _:
             print('Unsupported format. Proceeding with parquet\n')

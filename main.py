@@ -2,8 +2,9 @@ import os
 from utils import get_datasource, create_spark_session, load_data
 
 def main():
-    data_path='tpcds_10'
-    formats = ['delta']
+    folder_name = 'tpcds_10'
+    data_path = os.path.abspath(folder_name)
+    formats = ['hudi']
     spark_session = create_spark_session(name="Test run")
 
     for format in formats:

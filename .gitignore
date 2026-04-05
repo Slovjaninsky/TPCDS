@@ -1,5 +1,5 @@
 .venv/
 __pycache__/
 tpcds_*/
-
-results.csv*
+results*
+spark-warehouse/
