@@ -7,7 +7,7 @@ def create_spark_session(name: str) -> SparkSession:
     spark_session = SparkSession.builder \
         .appName(name) \
         .master('local[*]') \
-        .config("spark.driver.memory", "12g") \
+        .config("spark.driver.memory", "16g") \
         .config("spark.jars.packages",
                 ",".join([
                 "io.delta:delta-spark_2.12:3.2.0",
