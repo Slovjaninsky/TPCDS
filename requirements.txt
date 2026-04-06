@@ -1,0 +1,14 @@
+delta-spark==3.3.2
+hudi==0.4.0
+importlib_metadata==9.0.0
+numpy==2.4.4
+pandas==3.0.2
+py4j==0.10.9.9
+pyarrow==23.0.1
+pyarrow-hotfix==0.7
+pyspark==3.5.8
+python-dateutil==2.9.0.post0
+six==1.17.0
+sparkmeasure==0.27.0
+TPCDS-PySpark==1.0.6
+zipp==3.23.0

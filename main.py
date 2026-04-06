@@ -24,7 +24,7 @@ def main(format: str, source_path: str, queries_list: str, number_of_runs: int, 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        prog='ODF benchmark tool',
+        prog='main.py',
         description='This tool enables ODF comparison with PySpark'
     )
     parser.add_argument('-f', '--format', default='parquet')
