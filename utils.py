@@ -76,11 +76,10 @@ def create_spark_session(name: str, format: str, master: str, memory: int) -> Sp
 def load_data(
         spark_session: SparkSession,
         data_path: str,
-        data_format: str = 'parquet',
-        num_runs: int = 1,
-        queries_repeat_times: int = 1,
-        queries: list = [],
-        queries_exclude: list = [],
+        data_format: str,
+        num_runs: int,
+        queries_repeat_times: int,
+        queries: str,
         sleep_time: int = 1,
         namespace = '' # only for Iceberg
     ) -> CustomTPCDS:
@@ -92,7 +91,6 @@ def load_data(
         num_runs=num_runs,
         queries_repeat_times=queries_repeat_times,
         queries=queries,
-        queries_exclude=queries_exclude,
         sleep_time=sleep_time
     )
     if data_format == 'iceberg':
