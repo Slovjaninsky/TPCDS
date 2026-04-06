@@ -41,3 +41,19 @@ class CustomTPCDS(TPCDS):
             raise ValueError(f"queries_exclude must be a subset of {self.queries}")
         # Subtract queries_exclude from queries, keeping the order of queries
         self.queries_to_run = [query for query in self.queries if query not in queries_exclude]
+
+    def map_tables_iceberg(self, namespace='', define_temporary_views=True):
+        """Modification of the map_table function for TPCDS for Iceberg compatibility
+        And we don't create catalogues since they are already inplace after conversion"""
+
+        data_path = self.data_path
+        data_format = self.data_format
+        spark = self.spark
+        tables = self.tpcds_tables
+
+        spark.sql(f'USE {namespace}')
+        # Loop through each table name and create a temporary view for it
+        if define_temporary_views:
+            for table in tables:
+                print(f"Creating temporary view {table}")
+                spark.read.format(data_format).load(f'{namespace}.{table}').createOrReplaceTempView(table)
