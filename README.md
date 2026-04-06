@@ -1,6 +1,6 @@
 # TPC-DS PySpark executor with Open Data Format (Delta, Hudi, Iceberg)
 
-This TPC-DS executor allows to run TPC-DS workloads with different Open Dat Formats as a part of a benchmark.
+This TPC-DS executor allows to run TPC-DS workloads with different Open Data Formats as a part of a benchmark.
 
 ### Prerequisites
 Python 3.11.x,
