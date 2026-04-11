@@ -3,11 +3,11 @@ from utils import get_datasource, create_spark_session, load_data
 
 def main(format: str, source_path: str, queries_list: str, number_of_runs: int, queries_repeat: int, optimization_technique: str):
     print(f"\n{'='*40}\nStarting benchmark for: {format}\n{'='*40}")
-    print(f'''Data source: {source_path}\n
-        Queries: {queries_list}\n
-        Number of runs: {number_of_runs}\n
-        Queries repeat times: {queries_repeat}\n
-        Optimization technique: {optimization_technique}\n
+    print(f'''Data source: {source_path}
+        Queries: {queries_list}
+        Number of runs: {number_of_runs}
+        Queries repeat times: {queries_repeat}
+        Optimization technique: {optimization_technique}
     ''')
     print(f"\n{'='*40}")
     spark_session = create_spark_session(name=f'{format}_session', format=format, master='local[*]', memory=16)    
@@ -24,7 +24,7 @@ def main(format: str, source_path: str, queries_list: str, number_of_runs: int, 
     )
 
     tpcds.run_TPCDS()
-    tpcds.print_test_results(output_file=f'results_{format}_{source_path}.csv')
+    tpcds.print_test_results(output_file=f'results_{format}_{source_path}_{optimization_technique}.csv')
     spark_session.stop()
 
 if __name__ == '__main__':

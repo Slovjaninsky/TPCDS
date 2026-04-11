@@ -22,6 +22,11 @@ Number of runs: integer, number of runs for the workload. Default: `1`.
 
 Queries repeat: integer, number of times the query repeats during the worklaod. Default: `1`.
 
-Optimization technique: string, available optimization techniques for Delta (`zorder`, `compaction`). Default: none.
+Optimization technique: string. Default: none.
+
+Available optimization techniques:
+
+* Delta (`zorder`, `compaction`)
+* Hudi (`BLOOM`, `GLOBAL_BLOOM`, `SIMPLE`, `GLOBAL_SIMPLE`, `HBASE`, `INMEMORY`, `BUCKET_SIMPLE`, `BUCKET_CONSISTENT`, `RECORD_LEVEL_INDEX`, `GLOBAL_RECORD_LEVEL_INDEX`)
 
 For example, `main.py -f delta -s tpcds_10 -q all`, or `main.py -f iceberg -s tpcds_10 -q "q1, q2, q3" -n 3 -r 5`

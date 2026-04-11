@@ -100,21 +100,11 @@ def load_data(
         tpcds.map_tables()
     return tpcds
 
-def convert_parquet_to_delta(spark_session: SparkSession, source_path: str, destination_path: str):
+def convert_parquet_to_delta(spark_session: SparkSession, source_path: str, destination_path: str, optimization_technique: str = ''):
     if os.path.exists(destination_path):
         return
-    
-    tables = [t for t in os.listdir(source_path)]
 
-    for table in tables:
-        parquet_table_path = os.path.join(source_path, table)
-        delta_table_path = os.path.join(destination_path, table)
-        df = spark_session.read.format('parquet').load(parquet_table_path)
-        df.write.format('delta').mode('overwrite').save(delta_table_path)
-
-def convert_parquet_to_delta_zorder(spark_session: SparkSession, source_path: str, destination_path: str):
-    convert_parquet_to_delta(spark_session=spark_session, source_path=source_path, destination_path=destination_path)
-    tables = [t for t in os.listdir(destination_path)]
+    # To be precised with Dr. Lorkiewicz
     tpcds_zorder_map = {
         "store_sales": ["ss_sold_date_sk", "ss_item_sk"],
         "store_returns": ["sr_returned_date_sk", "sr_item_sk"],
@@ -124,28 +114,33 @@ def convert_parquet_to_delta_zorder(spark_session: SparkSession, source_path: st
         "web_returns": ["wr_returned_date_sk", "wr_item_sk"],
         "inventory": ["inv_date_sk", "inv_item_sk"]
     }
-    for table in tables:
-        table_path = os.path.join(destination_path, table)
-        dt = DeltaTable.forPath(spark_session, table_path)
-        if table in tpcds_zorder_map:
-            try:
-                z_cols = tpcds_zorder_map[table]
-                dt.optimize().executeZOrderBy(*z_cols)   
-            except Exception as e:
-                print(f"Failed to optimize (Z-order) table {table} at {table_path}: {e}")
+    
+    tables = [t for t in os.listdir(source_path)]
 
-def convert_parquet_to_delta_compaction(spark_session: SparkSession, source_path: str, destination_path: str):
-    convert_parquet_to_delta(spark_session=spark_session, source_path=source_path, destination_path=destination_path)
-    tables = [t for t in os.listdir(destination_path)]
     for table in tables:
-        table_path = os.path.join(destination_path, table)
-        try:
-            dt = DeltaTable.forPath(spark_session, table_path)
-            dt.optimize().executeCompaction()
-        except Exception as e:
-            print(f"Failed to optimize (compaction) table {table} at {table_path}: {e}")
+        parquet_table_path = os.path.join(source_path, table)
+        delta_table_path = os.path.join(destination_path, table)
+        df = spark_session.read.format('parquet').load(parquet_table_path)
+        df.write.format('delta').mode('overwrite').save(delta_table_path)
 
-def convert_parquet_to_hudi(spark_session: SparkSession, source_path: str, destination_path: str):
+        if (optimization_technique == 'zorder'):
+            dt = DeltaTable.forPath(spark_session, delta_table_path)
+            if table in tpcds_zorder_map:
+                try:
+                    z_cols = tpcds_zorder_map[table]
+                    dt.optimize().executeZOrderBy(*z_cols)   
+                except Exception as e:
+                    print(f"Failed to optimize (Z-order) table {table} at {delta_table_path}: {e}")
+
+        elif (optimization_technique == 'compaction'):
+            dt = DeltaTable.forPath(spark_session, delta_table_path)
+            if table in tpcds_zorder_map:
+                try:
+                    dt.optimize().executeCompaction()  
+                except Exception as e:
+                    print(f"Failed to optimize (compaction) table {table} at {delta_table_path}: {e}")
+
+def convert_parquet_to_hudi(spark_session: SparkSession, source_path: str, destination_path: str, optimization_technique: str = ''):
     if os.path.exists(destination_path):
         return
     
@@ -162,9 +157,44 @@ def convert_parquet_to_hudi(spark_session: SparkSession, source_path: str, desti
             'hoodie.datasource.write.recordkey.field': 'hudi_pk',
             'hoodie.datasource.write.precombine.field': 'hudi_pk',
             'hoodie.datasource.write.operation': 'bulk_insert',
-            # 'hoodie.datasource.write.keygenerator.class': 'org.apache.hudi.keygen.NonpartitionedKeyGenerator',
-            # 'hoodie.datasource.write.partitionpath.field': ''
         }
+
+        index = optimization_technique.upper()
+
+        # To be precised with Dr. Lorkiewicz
+        match index:
+            case 'BLOOM':
+                hudi_options['hoodie.index.type'] = 'BLOOM'
+            case 'GLOBAL_BLOOM':
+                hudi_options['hoodie.index.type'] = 'GLOBAL_BLOOM'
+            case 'SIMPLE':
+                hudi_options['hoodie.index.type'] = 'SIMPLE'
+            case 'GLOBAL_SIMPLE':
+                hudi_options['hoodie.index.type'] = 'GLOBAL_SIMPLE'
+            case 'HBASE':
+                hudi_options['hoodie.index.type'] = 'HBASE'
+                hudi_options['hoodie.index.hbase.zkquorum'] = 'localhost' 
+            case 'INMEMORY':
+                hudi_options['hoodie.index.type'] = 'INMEMORY'
+            case 'BUCKET_SIMPLE':
+                hudi_options['hoodie.index.type'] = 'BUCKET'
+                hudi_options['hoodie.index.bucket.engine'] = 'SIMPLE'
+                hudi_options['hoodie.bucket.index.num.buckets'] = '8' # values to be precised with Dr. Lorkiewicz
+            case 'BUCKET_CONSISTENT':
+                hudi_options['hoodie.index.type'] = 'BUCKET'
+                hudi_options['hoodie.index.bucket.engine'] = 'CONSISTENT_HASHING'
+                hudi_options['hoodie.bucket.index.num.buckets'] = '8' # values to be precised with Dr. Lorkiewicz
+                hudi_options['hoodie.bucket.index.min.num.buckets'] = '4' # values to be precised with Dr. Lorkiewicz
+                hudi_options['hoodie.bucket.index.max.num.buckets'] = '12' # values to be precised with Dr. Lorkiewicz
+            case 'RECORD_LEVEL_INDEX':
+                hudi_options['hoodie.index.type'] = 'RECORD_LEVEL_INDEX'
+                hudi_options['hoodie.metadata.record.index.enable'] = 'true'
+            case 'GLOBAL_RECORD_LEVEL_INDEX':
+                hudi_options['hoodie.index.type'] = 'GLOBAL_RECORD_LEVEL_INDEX'
+                hudi_options['hoodie.metadata.record.index.enable'] = 'true'
+            case _:
+                ...
+
         df.write.format('hudi').options(**hudi_options).mode('overwrite').save(hudi_table_path)
 
 def convert_parquet_to_iceberg(spark_session: SparkSession, source_path: str, namespace: str):
@@ -182,18 +212,14 @@ def get_datasource(spark_session: SparkSession, format: str, source_path: str, o
         case 'delta':
             if (optimization_technique == ''):
                 destination_path = f'{source_path}_{format}'
-                convert_parquet_to_delta(spark_session=spark_session, source_path=source_path, destination_path=destination_path)
-            elif (optimization_technique == 'zorder'):
+            else:
                 destination_path = f'{source_path}_{format}_{optimization_technique}'
-                convert_parquet_to_delta_zorder(spark_session=spark_session, source_path=source_path, destination_path=destination_path)
-            elif (optimization_technique == 'compaction'):
-                destination_path = f'{source_path}_{format}_{optimization_technique}'
-                convert_parquet_to_delta_compaction(spark_session=spark_session, source_path=source_path, destination_path=destination_path)
+            convert_parquet_to_delta(spark_session=spark_session, source_path=source_path, destination_path=destination_path, optimization_technique=optimization_technique)
             return destination_path
         case 'hudi':
             data_path = os.path.abspath(source_path)
-            destination_path = f'{data_path}_{format}'
-            convert_parquet_to_hudi(spark_session=spark_session, source_path=data_path, destination_path=destination_path)
+            destination_path = f'{data_path}_{format}_{optimization_technique}'
+            convert_parquet_to_hudi(spark_session=spark_session, source_path=data_path, destination_path=destination_path, optimization_technique=optimization_technique)
             return destination_path
         case 'iceberg':
             convert_parquet_to_iceberg(spark_session=spark_session, source_path=source_path, namespace=source_path)
