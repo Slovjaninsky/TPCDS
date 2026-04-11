@@ -16,6 +16,7 @@ Formats: `parquet` (default), `delta`, `hudi`, `iceberg`.
 
 Source: the directory of the data. Data can be found on [https://sparkdltrigger.web.cern.ch/sparkdltrigger/TPCDS/tpcds_10.zip](https://sparkdltrigger.web.cern.ch/sparkdltrigger/TPCDS/tpcds_10.zip), or generated with a dedicated TPC-DS generation tool. Default: `tpcds_1`
 .
+
 Queries: `all` for all 99 queries, or comma-separated list of queries ids `"q1, q2, q3"`. Default: `all`.
 
 Number of runs: integer, number of runs for the workload. Default: `1`.
