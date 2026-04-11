@@ -180,12 +180,12 @@ def convert_parquet_to_hudi(spark_session: SparkSession, source_path: str, desti
                 hudi_options['hoodie.index.type'] = 'BUCKET'
                 hudi_options['hoodie.index.bucket.engine'] = 'SIMPLE'
                 hudi_options['hoodie.bucket.index.num.buckets'] = '8' # values to be precised with Dr. Lorkiewicz
-            case 'BUCKET_CONSISTENT':
-                hudi_options['hoodie.index.type'] = 'BUCKET'
-                hudi_options['hoodie.index.bucket.engine'] = 'CONSISTENT_HASHING'
-                hudi_options['hoodie.bucket.index.num.buckets'] = '8' # values to be precised with Dr. Lorkiewicz
-                hudi_options['hoodie.bucket.index.min.num.buckets'] = '4' # values to be precised with Dr. Lorkiewicz
-                hudi_options['hoodie.bucket.index.max.num.buckets'] = '12' # values to be precised with Dr. Lorkiewicz
+            # case 'BUCKET_CONSISTENT':
+            #     hudi_options['hoodie.index.type'] = 'BUCKET'
+            #     hudi_options['hoodie.index.bucket.engine'] = 'CONSISTENT_HASHING'
+            #     hudi_options['hoodie.bucket.index.num.buckets'] = '8' # values to be precised with Dr. Lorkiewicz
+            #     hudi_options['hoodie.bucket.index.min.num.buckets'] = '4' # values to be precised with Dr. Lorkiewicz
+            #     hudi_options['hoodie.bucket.index.max.num.buckets'] = '12' # values to be precised with Dr. Lorkiewicz
             case 'RECORD_LEVEL_INDEX':
                 hudi_options['hoodie.index.type'] = 'RECORD_LEVEL_INDEX'
                 hudi_options['hoodie.metadata.record.index.enable'] = 'true'
