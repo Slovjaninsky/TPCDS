@@ -1,12 +1,17 @@
 import argparse
 from utils import get_datasource, create_spark_session, load_data
 
-def main(format: str, source_path: str, queries_list: str, number_of_runs: int, queries_repeat: int):
+def main(format: str, source_path: str, queries_list: str, number_of_runs: int, queries_repeat: int, optimization_technique: str):
     print(f"\n{'='*40}\nStarting benchmark for: {format}\n{'='*40}")
-    print(f"Data source: {source_path}\nQueries: {queries_list}\nNumber of runs: {number_of_runs}\nQueries repeat times: {queries_repeat}")
+    print(f'''Data source: {source_path}\n
+        Queries: {queries_list}\n
+        Number of runs: {number_of_runs}\n
+        Queries repeat times: {queries_repeat}\n
+        Optimization technique: {optimization_technique}\n
+    ''')
     print(f"\n{'='*40}")
     spark_session = create_spark_session(name=f'{format}_session', format=format, master='local[*]', memory=16)    
-    current_path = get_datasource(spark_session=spark_session, format=format, source_path=source_path)
+    current_path = get_datasource(spark_session=spark_session, format=format, source_path=source_path, optimization_technique=optimization_technique)
 
     tpcds = load_data(
         spark_session=spark_session,
@@ -32,5 +37,6 @@ if __name__ == '__main__':
     parser.add_argument('-q', '--queries-list', default='all')
     parser.add_argument('-n', '--number_of_runs', default=1)
     parser.add_argument('-r', '--queries_repeat', default=1)
+    parser.add_argument('-o', '--optimization_technique', default='')
     args = parser.parse_args()
     main(**vars(args))

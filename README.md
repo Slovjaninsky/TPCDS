@@ -10,7 +10,7 @@ Libraries list in `requirements.txt`,
 Additionally, to run workloads on Iceberg, the [Nessie](https://projectnessie.org/guides/docker/) catalogue engine should be running on `localhost:19120`.
 
 ### Workload execution
-`main.py [-h] [-f FORMAT] [-s SOURCE_PATH] [-q QUERIES_LIST] [-n NUMBER_OF_RUNS] [-r QUERIES_REPEAT]`
+`main.py [-h] [-f FORMAT] [-s SOURCE_PATH] [-q QUERIES_LIST] [-n NUMBER_OF_RUNS] [-r QUERIES_REPEAT] [-o OPTIMIZATION_TECHNIQUE]`
 
 Formats: `parquet` (default), `delta`, `hudi`, `iceberg`.
 
@@ -21,5 +21,7 @@ Queries: `all` for all 99 queries, or comma-separated list of queries ids `"q1, 
 Number of runs: integer, number of runs for the workload. Default: `1`.
 
 Queries repeat: integer, number of times the query repeats during the worklaod. Default: `1`.
+
+Optimization technique: string, available optimization techniques for Delta (`zorder`, `compaction`). Default: none.
 
 For example, `main.py -f delta -s tpcds_10 -q all`, or `main.py -f iceberg -s tpcds_10 -q "q1, q2, q3" -n 3 -r 5`

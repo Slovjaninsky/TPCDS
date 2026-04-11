@@ -1,6 +1,7 @@
 import os
 from pyspark.sql import SparkSession, functions
 from CustomTPCDS import CustomTPCDS
+from delta import DeltaTable
 
 def create_spark_session(name: str, format: str, master: str, memory: int) -> SparkSession:
 
@@ -111,6 +112,39 @@ def convert_parquet_to_delta(spark_session: SparkSession, source_path: str, dest
         df = spark_session.read.format('parquet').load(parquet_table_path)
         df.write.format('delta').mode('overwrite').save(delta_table_path)
 
+def convert_parquet_to_delta_zorder(spark_session: SparkSession, source_path: str, destination_path: str):
+    convert_parquet_to_delta(spark_session=spark_session, source_path=source_path, destination_path=destination_path)
+    tables = [t for t in os.listdir(destination_path)]
+    tpcds_zorder_map = {
+        "store_sales": ["ss_sold_date_sk", "ss_item_sk"],
+        "store_returns": ["sr_returned_date_sk", "sr_item_sk"],
+        "catalog_sales": ["cs_sold_date_sk", "cs_item_sk"],
+        "catalog_returns": ["cr_returned_date_sk", "cr_item_sk"],
+        "web_sales": ["ws_sold_date_sk", "ws_item_sk"],
+        "web_returns": ["wr_returned_date_sk", "wr_item_sk"],
+        "inventory": ["inv_date_sk", "inv_item_sk"]
+    }
+    for table in tables:
+        table_path = os.path.join(destination_path, table)
+        dt = DeltaTable.forPath(spark_session, table_path)
+        if table in tpcds_zorder_map:
+            try:
+                z_cols = tpcds_zorder_map[table]
+                dt.optimize().executeZOrderBy(*z_cols)   
+            except Exception as e:
+                print(f"Failed to optimize (Z-order) table {table} at {table_path}: {e}")
+
+def convert_parquet_to_delta_compaction(spark_session: SparkSession, source_path: str, destination_path: str):
+    convert_parquet_to_delta(spark_session=spark_session, source_path=source_path, destination_path=destination_path)
+    tables = [t for t in os.listdir(destination_path)]
+    for table in tables:
+        table_path = os.path.join(destination_path, table)
+        try:
+            dt = DeltaTable.forPath(spark_session, table_path)
+            dt.optimize().executeCompaction()
+        except Exception as e:
+            print(f"Failed to optimize (compaction) table {table} at {table_path}: {e}")
+
 def convert_parquet_to_hudi(spark_session: SparkSession, source_path: str, destination_path: str):
     if os.path.exists(destination_path):
         return
@@ -143,11 +177,18 @@ def convert_parquet_to_iceberg(spark_session: SparkSession, source_path: str, na
         df = spark_session.read.format('parquet').load(parquet_table_path)
         df.write.format('iceberg').mode('overwrite').saveAsTable(iceberg_table)
 
-def get_datasource(spark_session: SparkSession, format: str, source_path: str) -> str:
+def get_datasource(spark_session: SparkSession, format: str, source_path: str, optimization_technique: str = '') -> str:
     match format:
         case 'delta':
-            destination_path = f'{source_path}_{format}'
-            convert_parquet_to_delta(spark_session=spark_session, source_path=source_path, destination_path=destination_path)
+            if (optimization_technique == ''):
+                destination_path = f'{source_path}_{format}'
+                convert_parquet_to_delta(spark_session=spark_session, source_path=source_path, destination_path=destination_path)
+            elif (optimization_technique == 'zorder'):
+                destination_path = f'{source_path}_{format}_{optimization_technique}'
+                convert_parquet_to_delta_zorder(spark_session=spark_session, source_path=source_path, destination_path=destination_path)
+            elif (optimization_technique == 'compaction'):
+                destination_path = f'{source_path}_{format}_{optimization_technique}'
+                convert_parquet_to_delta_compaction(spark_session=spark_session, source_path=source_path, destination_path=destination_path)
             return destination_path
         case 'hudi':
             data_path = os.path.abspath(source_path)

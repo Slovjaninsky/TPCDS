@@ -12,3 +12,4 @@ six==1.17.0
 sparkmeasure==0.27.0
 TPCDS-PySpark==1.0.6
 zipp==3.23.0
+delta-spark==3.2.0
