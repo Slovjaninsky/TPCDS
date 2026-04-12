@@ -111,10 +111,11 @@ def load_data(
         tpcds.map_tables()
     return tpcds
 
-def convert_parquet_to_delta(spark_session: SparkSession, source_path: str, destination_path: str, optimization_technique: str = ''):
+def convert_parquet_to_delta(spark_session: SparkSession, source_path: str, destination_path: str, optimization_technique: str, block_size: int):
     if os.path.exists(destination_path):
         return
     
+    spark_session.conf.set("parquet.block.size", str(block_size))
     tables = [t for t in os.listdir(source_path)]
 
     for table in tables:
@@ -140,7 +141,7 @@ def convert_parquet_to_delta(spark_session: SparkSession, source_path: str, dest
                 except Exception as e:
                     print(f"Failed to optimize (compaction) table {table} at {delta_table_path}: {e}")
 
-def convert_parquet_to_hudi(spark_session: SparkSession, source_path: str, destination_path: str, optimization_technique: str = ''):
+def convert_parquet_to_hudi(spark_session: SparkSession, source_path: str, destination_path: str, optimization_technique: str, block_size: int):
     if os.path.exists(destination_path):
         return
     
@@ -156,6 +157,7 @@ def convert_parquet_to_hudi(spark_session: SparkSession, source_path: str, desti
             'hoodie.table.name': table,
             'hoodie.datasource.write.recordkey.field': 'hudi_pk',
             'hoodie.datasource.write.precombine.field': 'hudi_pk',
+            'hoodie.parquet.block.size': str(block_size),
             'hoodie.datasource.write.operation': 'bulk_insert',
         }
 
@@ -197,7 +199,7 @@ def convert_parquet_to_hudi(spark_session: SparkSession, source_path: str, desti
 
         df.write.format('hudi').options(**hudi_options).mode('overwrite').save(hudi_table_path)
 
-def convert_parquet_to_iceberg(spark_session: SparkSession, source_path: str, namespace: str, optimization_technique: str = ''):
+def convert_parquet_to_iceberg(spark_session: SparkSession, source_path: str, namespace: str, optimization_technique: str, block_size: int):
     
     tables = [t for t in os.listdir(source_path)]
     spark_session.sql(f'CREATE NAMESPACE IF NOT EXISTS {namespace}')
@@ -206,7 +208,7 @@ def convert_parquet_to_iceberg(spark_session: SparkSession, source_path: str, na
         parquet_table_path = os.path.join(source_path, table)
         iceberg_table = f'{namespace}.{table}'
         df = spark_session.read.format('parquet').load(parquet_table_path)
-        df.write.format('iceberg').mode('overwrite').saveAsTable(iceberg_table)
+        df.writeTo(iceberg_table).tableProperty("write.parquet.row-group-size-bytes", str(block_size)).using('iceberg').createOrReplace()
 
         if optimization_technique == 'zorder':
             if table in tpcds_zorder_map:
@@ -233,14 +235,14 @@ def convert_parquet_to_iceberg(spark_session: SparkSession, source_path: str, na
                 except Exception as e:
                     print(f'Failed to optimize (Bloom filters) table {table} at {iceberg_table}: {e}')
 
-def get_datasource(spark_session: SparkSession, format: str, source_path: str, optimization_technique: str = '') -> str:
+def get_datasource(spark_session: SparkSession, format: str, source_path: str, optimization_technique: str, block_size: int) -> str:
     match format:
         case 'delta':
             if (optimization_technique == ''):
                 destination_path = f'{source_path}_{format}'
             else:
                 destination_path = f'{source_path}_{format}_{optimization_technique}'
-            convert_parquet_to_delta(spark_session=spark_session, source_path=source_path, destination_path=destination_path, optimization_technique=optimization_technique)
+            convert_parquet_to_delta(spark_session=spark_session, source_path=source_path, destination_path=destination_path, optimization_technique=optimization_technique, block_size=block_size)
             return destination_path
         case 'hudi':
             data_path = os.path.abspath(source_path)
@@ -248,14 +250,14 @@ def get_datasource(spark_session: SparkSession, format: str, source_path: str, o
                 destination_path = f'{data_path}_{format}'
             else:
                 destination_path = f'{data_path}_{format}_{optimization_technique}'
-            convert_parquet_to_hudi(spark_session=spark_session, source_path=data_path, destination_path=destination_path, optimization_technique=optimization_technique)
+            convert_parquet_to_hudi(spark_session=spark_session, source_path=data_path, destination_path=destination_path, optimization_technique=optimization_technique, block_size=block_size)
             return destination_path
         case 'iceberg':
             if (optimization_technique == ''):
                 namespace = f'{source_path}_{format}'
             else:
                 namespace = f'{source_path}_{format}_{optimization_technique}'
-            convert_parquet_to_iceberg(spark_session=spark_session, source_path=source_path, namespace=namespace)
+            convert_parquet_to_iceberg(spark_session=spark_session, source_path=source_path, namespace=namespace, optimization_technique=optimization_technique, block_size=block_size)
             return namespace
         case _:
             print('Unsupported format. Proceeding with parquet\n')
