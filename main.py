@@ -9,7 +9,7 @@ Queries: {queries_list}
 Number of runs: {number_of_runs}
 Queries repeat times: {queries_repeat}
 Optimization technique: {optimization_technique}
-Block size: {block_size}'''
+Block size: {block_size}MiB'''
     )
     print(f"\n{'='*40}")
     spark_session = create_spark_session(name=f'{format}_session', format=format, master='local[*]', memory=16)    
@@ -26,7 +26,7 @@ Block size: {block_size}'''
     )
 
     tpcds.run_TPCDS()
-    tpcds.print_test_results(output_file=f'results_{format}_{source_path}_{optimization_technique}.csv')
+    tpcds.print_test_results(output_file=f'results_{format}_{source_path}_{optimization_technique}_{block_size}MiB.csv')
     spark_session.stop()
 
 if __name__ == '__main__':
@@ -40,6 +40,6 @@ if __name__ == '__main__':
     parser.add_argument('-n', '--number_of_runs', default=1)
     parser.add_argument('-r', '--queries_repeat', default=1)
     parser.add_argument('-o', '--optimization_technique', default='')
-    parser.add_argument('-b', '--block_size', default=134217728)
+    parser.add_argument('-b', '--block_size', default=128)
     args = parser.parse_args()
     main(**vars(args))

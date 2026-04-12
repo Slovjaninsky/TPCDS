@@ -25,6 +25,8 @@ Queries repeat: integer, number of times the query repeats during the worklaod. 
 
 Optimization technique: string. Default: none.
 
+Block size: integer. Table block size in MiB. Default: `128`.
+
 Available optimization techniques:
 
 * Delta (`zorder`, `compaction`)
