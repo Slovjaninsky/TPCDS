@@ -31,4 +31,4 @@ Available optimization techniques:
 * Hudi (`bloom`, `global_bloom`, `simple`, `global_simple`, `hbase`, `inmemory`, `bucket_simple`, `record_level_index`, `global_record_level_index`)
 * Iceberg (`zorder`, `bloom`)
 
-For example, `main.py -f delta -s tpcds_10 -q all`, or `main.py -f iceberg -s tpcds_10 -q "q1, q2, q3" -n 3 -r 5`
+For example, `main.py -f delta -s tpcds_10 -q all`, `main.py -f hudi -o bloom` or `main.py -f iceberg -s tpcds_10 -q "q1, q2, q3" -n 3 -r 5`
