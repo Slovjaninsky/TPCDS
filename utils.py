@@ -3,6 +3,17 @@ from pyspark.sql import SparkSession, functions
 from CustomTPCDS import CustomTPCDS
 from delta import DeltaTable
 
+# To be discussed
+tpcds_zorder_map = {
+    "store_sales": ["ss_sold_date_sk", "ss_item_sk"],
+    "store_returns": ["sr_returned_date_sk", "sr_item_sk"],
+    "catalog_sales": ["cs_sold_date_sk", "cs_item_sk"],
+    "catalog_returns": ["cr_returned_date_sk", "cr_item_sk"],
+    "web_sales": ["ws_sold_date_sk", "ws_item_sk"],
+    "web_returns": ["wr_returned_date_sk", "wr_item_sk"],
+    "inventory": ["inv_date_sk", "inv_item_sk"]
+}
+
 def create_spark_session(name: str, format: str, master: str, memory: int) -> SparkSession:
 
     match format:
@@ -103,17 +114,6 @@ def load_data(
 def convert_parquet_to_delta(spark_session: SparkSession, source_path: str, destination_path: str, optimization_technique: str = ''):
     if os.path.exists(destination_path):
         return
-
-    # To be precised with Dr. Lorkiewicz
-    tpcds_zorder_map = {
-        "store_sales": ["ss_sold_date_sk", "ss_item_sk"],
-        "store_returns": ["sr_returned_date_sk", "sr_item_sk"],
-        "catalog_sales": ["cs_sold_date_sk", "cs_item_sk"],
-        "catalog_returns": ["cr_returned_date_sk", "cr_item_sk"],
-        "web_sales": ["ws_sold_date_sk", "ws_item_sk"],
-        "web_returns": ["wr_returned_date_sk", "wr_item_sk"],
-        "inventory": ["inv_date_sk", "inv_item_sk"]
-    }
     
     tables = [t for t in os.listdir(source_path)]
 
@@ -179,13 +179,13 @@ def convert_parquet_to_hudi(spark_session: SparkSession, source_path: str, desti
             case 'BUCKET_SIMPLE':
                 hudi_options['hoodie.index.type'] = 'BUCKET'
                 hudi_options['hoodie.index.bucket.engine'] = 'SIMPLE'
-                hudi_options['hoodie.bucket.index.num.buckets'] = '8' # values to be precised with Dr. Lorkiewicz
+                hudi_options['hoodie.bucket.index.num.buckets'] = '8' # values to be discussed
             # case 'BUCKET_CONSISTENT':
             #     hudi_options['hoodie.index.type'] = 'BUCKET'
             #     hudi_options['hoodie.index.bucket.engine'] = 'CONSISTENT_HASHING'
-            #     hudi_options['hoodie.bucket.index.num.buckets'] = '8' # values to be precised with Dr. Lorkiewicz
-            #     hudi_options['hoodie.bucket.index.min.num.buckets'] = '4' # values to be precised with Dr. Lorkiewicz
-            #     hudi_options['hoodie.bucket.index.max.num.buckets'] = '12' # values to be precised with Dr. Lorkiewicz
+            #     hudi_options['hoodie.bucket.index.num.buckets'] = '8' # values to be discussed
+            #     hudi_options['hoodie.bucket.index.min.num.buckets'] = '4' # values to be discussed
+            #     hudi_options['hoodie.bucket.index.max.num.buckets'] = '12' # values to be discussed
             case 'RECORD_LEVEL_INDEX':
                 hudi_options['hoodie.index.type'] = 'RECORD_LEVEL_INDEX'
                 hudi_options['hoodie.metadata.record.index.enable'] = 'true'
@@ -197,7 +197,8 @@ def convert_parquet_to_hudi(spark_session: SparkSession, source_path: str, desti
 
         df.write.format('hudi').options(**hudi_options).mode('overwrite').save(hudi_table_path)
 
-def convert_parquet_to_iceberg(spark_session: SparkSession, source_path: str, namespace: str):
+def convert_parquet_to_iceberg(spark_session: SparkSession, source_path: str, namespace: str, optimization_technique: str = ''):
+    
     tables = [t for t in os.listdir(source_path)]
     spark_session.sql(f'CREATE NAMESPACE IF NOT EXISTS {namespace}')
 
@@ -206,6 +207,31 @@ def convert_parquet_to_iceberg(spark_session: SparkSession, source_path: str, na
         iceberg_table = f'{namespace}.{table}'
         df = spark_session.read.format('parquet').load(parquet_table_path)
         df.write.format('iceberg').mode('overwrite').saveAsTable(iceberg_table)
+
+        if optimization_technique == 'zorder':
+            if table in tpcds_zorder_map:
+                try:
+                    z_cols = ', '.join(tpcds_zorder_map[table])
+                    spark_session.sql(
+                        f"""CALL nessie.system.rewrite_data_files(
+                            table => '{iceberg_table}', 
+                            strategy => 'sort', 
+                            sort_order => 'zorder({z_cols})'
+                        )
+                    """)
+                except Exception as e:
+                    print(f'Failed to optimize (Z-order) table {table} at {iceberg_table}: {e}')
+        elif optimization_technique == 'bloom':
+            if table in tpcds_zorder_map:
+                try:
+                    for col in tpcds_zorder_map[table]:
+                        spark_session.sql(f"""
+                            ALTER TABLE {iceberg_table} 
+                            SET TBLPROPERTIES ('write.parquet.bloom-filter-enabled.column.{col}'='true')
+                        """)
+                    spark_session.sql(f"CALL nessie.system.rewrite_data_files(table => '{iceberg_table}')")
+                except Exception as e:
+                    print(f'Failed to optimize (Bloom filters) table {table} at {iceberg_table}: {e}')
 
 def get_datasource(spark_session: SparkSession, format: str, source_path: str, optimization_technique: str = '') -> str:
     match format:
@@ -218,12 +244,19 @@ def get_datasource(spark_session: SparkSession, format: str, source_path: str, o
             return destination_path
         case 'hudi':
             data_path = os.path.abspath(source_path)
-            destination_path = f'{data_path}_{format}_{optimization_technique}'
+            if (optimization_technique == ''):
+                destination_path = f'{data_path}_{format}'
+            else:
+                destination_path = f'{data_path}_{format}_{optimization_technique}'
             convert_parquet_to_hudi(spark_session=spark_session, source_path=data_path, destination_path=destination_path, optimization_technique=optimization_technique)
             return destination_path
         case 'iceberg':
-            convert_parquet_to_iceberg(spark_session=spark_session, source_path=source_path, namespace=source_path)
-            return source_path
+            if (optimization_technique == ''):
+                namespace = f'{source_path}_{format}'
+            else:
+                namespace = f'{source_path}_{format}_{optimization_technique}'
+            convert_parquet_to_iceberg(spark_session=spark_session, source_path=source_path, namespace=namespace)
+            return namespace
         case _:
             print('Unsupported format. Proceeding with parquet\n')
             return source_path
