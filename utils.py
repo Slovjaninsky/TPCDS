@@ -239,24 +239,24 @@ def get_datasource(spark_session: SparkSession, format: str, source_path: str, o
     match format:
         case 'delta':
             if (optimization_technique == ''):
-                destination_path = f'{source_path}_{format}'
+                destination_path = f'{source_path}_{format}_{block_size}MiB'
             else:
-                destination_path = f'{source_path}_{format}_{optimization_technique}'
+                destination_path = f'{source_path}_{format}_{optimization_technique}_{block_size}MiB'
             convert_parquet_to_delta(spark_session=spark_session, source_path=source_path, destination_path=destination_path, optimization_technique=optimization_technique, block_size=block_size*1048576)
             return destination_path
         case 'hudi':
             data_path = os.path.abspath(source_path)
             if (optimization_technique == ''):
-                destination_path = f'{data_path}_{format}'
+                destination_path = f'{data_path}_{format}_{block_size}MiB'
             else:
-                destination_path = f'{data_path}_{format}_{optimization_technique}'
+                destination_path = f'{data_path}_{format}_{optimization_technique}_{block_size}MiB'
             convert_parquet_to_hudi(spark_session=spark_session, source_path=data_path, destination_path=destination_path, optimization_technique=optimization_technique, block_size=block_size*1048576)
             return destination_path
         case 'iceberg':
             if (optimization_technique == ''):
-                namespace = f'{source_path}_{format}'
+                namespace = f'{source_path}_{format}_{block_size}MiB'
             else:
-                namespace = f'{source_path}_{format}_{optimization_technique}'
+                namespace = f'{source_path}_{format}_{optimization_technique}_{block_size}MiB'
             convert_parquet_to_iceberg(spark_session=spark_session, source_path=source_path, namespace=namespace, optimization_technique=optimization_technique, block_size=block_size*1048576)
             return namespace
         case _:
