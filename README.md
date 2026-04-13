@@ -10,7 +10,7 @@ Libraries list in `requirements.txt`,
 Additionally, to run workloads on Iceberg, the [Nessie](https://projectnessie.org/guides/docker/) catalogue engine should be running on `localhost:19120`.
 
 ### Workload execution
-`main.py [-h] [-f FORMAT] [-s SOURCE_PATH] [-q QUERIES_LIST] [-n NUMBER_OF_RUNS] [-r QUERIES_REPEAT] [-o OPTIMIZATION_TECHNIQUE]`
+`main.py [-h] [-f FORMAT] [-s SOURCE_PATH] [-q QUERIES_LIST] [-n NUMBER_OF_RUNS] [-r QUERIES_REPEAT] [-o OPTIMIZATION_TECHNIQUE] [-b BLOCK_SIZE]`
 
 Formats: `parquet` (default), `delta`, `hudi`, `iceberg`.
 
