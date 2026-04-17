@@ -23,14 +23,8 @@ Number of runs: integer, number of runs for the workload. Default: `1`.
 
 Queries repeat: integer, number of times the query repeats during the worklaod. Default: `1`.
 
-Optimization technique: string. Default: none.
+Optimization technique: string. Default: none. Available optimization techniques: `zorder`, `bloom`
 
 Block size: integer. Table block size in MiB. Default: `128`.
-
-Available optimization techniques:
-
-* Delta (`zorder`, `compaction`)
-* Hudi (`bloom`, `global_bloom`, `simple`, `global_simple`, `hbase`, `inmemory`, `bucket_simple`, `record_level_index`, `global_record_level_index`)
-* Iceberg (`zorder`, `bloom`)
 
 For example, `main.py -f delta -s tpcds_10 -q all`, `main.py -f hudi -o bloom` or `main.py -f iceberg -s tpcds_10 -q "q1, q2, q3" -n 3 -r 5`

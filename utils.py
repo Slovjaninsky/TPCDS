@@ -157,7 +157,14 @@ def convert_parquet_to_delta(spark_session: SparkSession, source_path: str, dest
         parquet_table_path = os.path.join(source_path, table)
         delta_table_path = os.path.join(destination_path, table)
         df = spark_session.read.format('parquet').load(parquet_table_path)
-        df.write.format('delta').mode('overwrite').save(delta_table_path)
+        writer = df.write.format('delta').mode('overwrite')
+
+        if optimization_technique == 'bloom' and table in tpcds_zorder_map:
+            for col in tpcds_zorder_map[table]:
+                writer.option(f"parquet.bloom.filter.enabled#{col}", "true")
+                writer.option(f"parquet.bloom.filter.expected.ndv#{col}", "1000000")
+        
+        writer.save(delta_table_path)
 
         if (optimization_technique == 'zorder'):
             dt = DeltaTable.forPath(spark_session, delta_table_path)
@@ -168,13 +175,6 @@ def convert_parquet_to_delta(spark_session: SparkSession, source_path: str, dest
                 except Exception as e:
                     print(f"Failed to optimize (Z-order) table {table} at {delta_table_path}: {e}")
 
-        elif (optimization_technique == 'compaction'):
-            dt = DeltaTable.forPath(spark_session, delta_table_path)
-            if table in tpcds_zorder_map:
-                try:
-                    dt.optimize().executeCompaction()  
-                except Exception as e:
-                    print(f"Failed to optimize (compaction) table {table} at {delta_table_path}: {e}")
 
 def convert_parquet_to_hudi(spark_session: SparkSession, source_path: str, destination_path: str, optimization_technique: str, block_size: int):
     if os.path.exists(destination_path):
@@ -199,35 +199,34 @@ def convert_parquet_to_hudi(spark_session: SparkSession, source_path: str, desti
         index = optimization_technique.upper()
 
         match index:
+            case 'ZORDER':
+                if table in tpcds_zorder_map:
+                    z_cols = ",".join(tpcds_zorder_map[table])
+                    hudi_options.update({
+                        'hoodie.layout.optimize.enable': 'true',
+                        'hoodie.layout.optimize.strategy': 'z-order',
+                        'hoodie.layout.optimize.curve.column.names': z_cols,
+                        'hoodie.bulkinsert.shuffle.parallelism': '2', 
+                        'hoodie.datasource.write.row.writer.enable': 'true'
+                    })
             case 'BLOOM':
-                hudi_options['hoodie.index.type'] = 'BLOOM'
-            case 'GLOBAL_BLOOM':
-                hudi_options['hoodie.index.type'] = 'GLOBAL_BLOOM'
-            case 'SIMPLE':
-                hudi_options['hoodie.index.type'] = 'SIMPLE'
-            case 'GLOBAL_SIMPLE':
-                hudi_options['hoodie.index.type'] = 'GLOBAL_SIMPLE'
-            case 'HBASE':
-                hudi_options['hoodie.index.type'] = 'HBASE'
-                hudi_options['hoodie.index.hbase.zkquorum'] = 'localhost' 
-            case 'INMEMORY':
-                hudi_options['hoodie.index.type'] = 'INMEMORY'
-            case 'BUCKET_SIMPLE':
-                hudi_options['hoodie.index.type'] = 'BUCKET'
-                hudi_options['hoodie.index.bucket.engine'] = 'SIMPLE'
-                hudi_options['hoodie.bucket.index.num.buckets'] = '8' # values to be discussed
-            # case 'BUCKET_CONSISTENT':
-            #     hudi_options['hoodie.index.type'] = 'BUCKET'
-            #     hudi_options['hoodie.index.bucket.engine'] = 'CONSISTENT_HASHING'
-            #     hudi_options['hoodie.bucket.index.num.buckets'] = '8' # values to be discussed
-            #     hudi_options['hoodie.bucket.index.min.num.buckets'] = '4' # values to be discussed
-            #     hudi_options['hoodie.bucket.index.max.num.buckets'] = '12' # values to be discussed
-            case 'RECORD_LEVEL_INDEX':
-                hudi_options['hoodie.index.type'] = 'RECORD_LEVEL_INDEX'
-                hudi_options['hoodie.metadata.record.index.enable'] = 'true'
-            case 'GLOBAL_RECORD_LEVEL_INDEX':
-                hudi_options['hoodie.index.type'] = 'GLOBAL_RECORD_LEVEL_INDEX'
-                hudi_options['hoodie.metadata.record.index.enable'] = 'true'
+                if table in tpcds_zorder_map:
+                    z_cols = ",".join(tpcds_zorder_map[table])
+                    hudi_options.update({
+                        'hoodie.metadata.enable': 'true',
+                        'hoodie.metadata.index.bloom.filter.enable': 'true',
+                        'hoodie.metadata.index.column.stats.enable': 'true',
+                        'hoodie.bloom.index.use.metadata': 'true',
+                        'hoodie.metadata.index.bloom.filter.column.list': z_cols
+                    })
+            case 'RECORD_INDEX':
+                if table in tpcds_zorder_map:
+                    z_cols = ",".join(tpcds_zorder_map[table])
+                    hudi_options.update({
+                        'hoodie.metadata.enable': 'true',
+                        'hoodie.metadata.record.index.enable': 'true',
+                        'hoodie.metadata.record.level.index.enable': 'true'
+                    })
             case _:
                 ...
 
@@ -242,7 +241,18 @@ def convert_parquet_to_iceberg(spark_session: SparkSession, source_path: str, na
         parquet_table_path = os.path.join(source_path, table)
         iceberg_table = f'{namespace}.{table}'
         df = spark_session.read.format('parquet').load(parquet_table_path)
-        df.writeTo(iceberg_table).tableProperty("write.parquet.row-group-size-bytes", str(block_size*1048576)).using('iceberg').createOrReplace()
+        properties = {
+            "write.parquet.row-group-size-bytes": str(block_size * 1048576)
+        }
+
+        if optimization_technique == 'bloom' and table in tpcds_zorder_map:
+            for col in tpcds_zorder_map[table]:
+                properties[f"write.parquet.bloom-filter-enabled.column.{col}"] = "true"
+
+        writer = df.writeTo(iceberg_table).using('iceberg')
+        for k, v in properties.items():
+            writer = writer.tableProperty(k, v)
+        writer.createOrReplace()
 
         if optimization_technique == 'zorder':
             if table in tpcds_zorder_map:
@@ -257,17 +267,6 @@ def convert_parquet_to_iceberg(spark_session: SparkSession, source_path: str, na
                     """)
                 except Exception as e:
                     print(f'Failed to optimize (Z-order) table {table} at {iceberg_table}: {e}')
-        elif optimization_technique == 'bloom':
-            if table in tpcds_zorder_map:
-                try:
-                    for col in tpcds_zorder_map[table]:
-                        spark_session.sql(f"""
-                            ALTER TABLE {iceberg_table} 
-                            SET TBLPROPERTIES ('write.parquet.bloom-filter-enabled.column.{col}'='true')
-                        """)
-                    spark_session.sql(f"CALL nessie.system.rewrite_data_files(table => '{iceberg_table}')")
-                except Exception as e:
-                    print(f'Failed to optimize (Bloom filters) table {table} at {iceberg_table}: {e}')
 
 def get_datasource(spark_session: SparkSession, format: str, source_path: str, optimization_technique: str, block_size: int) -> str:
     match format:
