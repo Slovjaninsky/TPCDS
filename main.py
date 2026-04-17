@@ -1,3 +1,4 @@
+import os
 import argparse
 from utils import get_datasource, create_spark_session, load_data
 
@@ -26,7 +27,10 @@ Block size: {block_size}MiB'''
     )
 
     tpcds.run_TPCDS()
-    tpcds.print_test_results(output_file=f'results_{format}_{source_path}_{optimization_technique}_{block_size}MiB.csv')
+    results_dir = f'results/{format}/{source_path}/{optimization_technique}/{block_size}MiB'
+    os.makedirs(results_dir)
+    output_file_path = os.path.join(results_dir, 'results.csv')
+    tpcds.print_test_results(output_file=output_file_path)
     spark_session.stop()
 
 if __name__ == '__main__':

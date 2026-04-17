@@ -3,7 +3,6 @@ from pyspark.sql import SparkSession, functions
 from CustomTPCDS import CustomTPCDS
 from delta import DeltaTable
 
-# To be discussed
 tpcds_zorder_map = {
     "store_sales": ["ss_sold_date_sk", "ss_item_sk"],
     "store_returns": ["sr_returned_date_sk", "sr_item_sk"],
@@ -11,7 +10,43 @@ tpcds_zorder_map = {
     "catalog_returns": ["cr_returned_date_sk", "cr_item_sk"],
     "web_sales": ["ws_sold_date_sk", "ws_item_sk"],
     "web_returns": ["wr_returned_date_sk", "wr_item_sk"],
-    "inventory": ["inv_date_sk", "inv_item_sk"]
+    "inventory": ["inv_date_sk", "inv_item_sk"],
+    "store": ["s_store_sk"],
+    "call_center": ["cc_call_center_sk"],
+    "catalog_page": ["cp_catalog_page_sk"],
+    "web_site": ["web_site_sk"],
+    "web_page": ["wp_web_page_sk"],
+    "warehouse": ["w_warehouse_sk"],
+    "customer": ["c_customer_sk"],
+    "date_dim": ["d_year", "d_month_seq"],
+    "item": ["i_item_sk"]
+}
+
+tpcds_pk = {
+    "store_sales": ["ss_ticket_number", "ss_item_sk"],
+    "store_returns": ["sr_ticket_number", "sr_item_sk"],
+    "catalog_sales": ["cs_order_number", "cs_item_sk"],
+    "catalog_returns": ["cr_order_number", "cr_item_sk"],
+    "web_sales": ["ws_order_number", "ws_item_sk"],
+    "web_returns": ["wr_order_number", "wr_item_sk"],
+    "inventory": ["inv_date_sk", "inv_item_sk", "inv_warehouse_sk"],
+    "store": ["s_store_sk"],
+    "call_center": ["cc_call_center_sk"],
+    "catalog_page": ["cp_catalog_page_sk"],
+    "web_site": ["web_site_sk"],
+    "web_page": ["wp_web_page_sk"],
+    "warehouse": ["w_warehouse_sk"],
+    "customer": ["c_customer_sk"],
+    "customer_address": ["ca_address_sk"],
+    "customer_demographics": ["cd_demo_sk"],
+    "date_dim": ["d_date_sk"],
+    "household_demographics": ["hd_demo_sk"],
+    "item": ["i_item_sk"],
+    "income_band": ["ib_income_band_sk"],
+    "promotion": ["p_promo_sk"],
+    "reason": ["r_reason_sk"],
+    "ship_mode": ["sm_ship_mode_sk"],
+    "time_dim": ["t_time_sk"],
 }
 
 def create_spark_session(name: str, format: str, master: str, memory: int) -> SparkSession:
@@ -152,18 +187,17 @@ def convert_parquet_to_hudi(spark_session: SparkSession, source_path: str, desti
         parquet_table_path = os.path.join(source_path, table)
         hudi_table_path = os.path.join(hudi_uri, table)
         df = spark_session.read.format('parquet').load(parquet_table_path)
-        df = df.withColumn('hudi_pk', functions.expr('uuid()'))
+        pk_columns = tpcds_pk.get(table)
+        hudi_record_key = ",".join(pk_columns)
         hudi_options = {
             'hoodie.table.name': table,
-            'hoodie.datasource.write.recordkey.field': 'hudi_pk',
-            'hoodie.datasource.write.precombine.field': 'hudi_pk',
-            'hoodie.parquet.block.size': str(block_size),
+            'hoodie.datasource.write.recordkey.field': hudi_record_key,
+            'hoodie.parquet.block.size': str(block_size*1048576),
             'hoodie.datasource.write.operation': 'bulk_insert',
         }
 
         index = optimization_technique.upper()
 
-        # To be precised with Dr. Lorkiewicz
         match index:
             case 'BLOOM':
                 hudi_options['hoodie.index.type'] = 'BLOOM'
@@ -208,7 +242,7 @@ def convert_parquet_to_iceberg(spark_session: SparkSession, source_path: str, na
         parquet_table_path = os.path.join(source_path, table)
         iceberg_table = f'{namespace}.{table}'
         df = spark_session.read.format('parquet').load(parquet_table_path)
-        df.writeTo(iceberg_table).tableProperty("write.parquet.row-group-size-bytes", str(block_size)).using('iceberg').createOrReplace()
+        df.writeTo(iceberg_table).tableProperty("write.parquet.row-group-size-bytes", str(block_size*1048576)).using('iceberg').createOrReplace()
 
         if optimization_technique == 'zorder':
             if table in tpcds_zorder_map:
@@ -242,7 +276,7 @@ def get_datasource(spark_session: SparkSession, format: str, source_path: str, o
                 destination_path = f'{source_path}_{format}_{block_size}MiB'
             else:
                 destination_path = f'{source_path}_{format}_{optimization_technique}_{block_size}MiB'
-            convert_parquet_to_delta(spark_session=spark_session, source_path=source_path, destination_path=destination_path, optimization_technique=optimization_technique, block_size=block_size*1048576)
+            convert_parquet_to_delta(spark_session=spark_session, source_path=source_path, destination_path=destination_path, optimization_technique=optimization_technique, block_size=block_size)
             return destination_path
         case 'hudi':
             data_path = os.path.abspath(source_path)
@@ -250,14 +284,14 @@ def get_datasource(spark_session: SparkSession, format: str, source_path: str, o
                 destination_path = f'{data_path}_{format}_{block_size}MiB'
             else:
                 destination_path = f'{data_path}_{format}_{optimization_technique}_{block_size}MiB'
-            convert_parquet_to_hudi(spark_session=spark_session, source_path=data_path, destination_path=destination_path, optimization_technique=optimization_technique, block_size=block_size*1048576)
+            convert_parquet_to_hudi(spark_session=spark_session, source_path=data_path, destination_path=destination_path, optimization_technique=optimization_technique, block_size=block_size)
             return destination_path
         case 'iceberg':
             if (optimization_technique == ''):
                 namespace = f'{source_path}_{format}_{block_size}MiB'
             else:
                 namespace = f'{source_path}_{format}_{optimization_technique}_{block_size}MiB'
-            convert_parquet_to_iceberg(spark_session=spark_session, source_path=source_path, namespace=namespace, optimization_technique=optimization_technique, block_size=block_size*1048576)
+            convert_parquet_to_iceberg(spark_session=spark_session, source_path=source_path, namespace=namespace, optimization_technique=optimization_technique, block_size=block_size)
             return namespace
         case _:
             print('Unsupported format. Proceeding with parquet\n')
