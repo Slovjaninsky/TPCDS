@@ -157,33 +157,32 @@ def convert_parquet_to_delta(spark_session: SparkSession, source_path: str, dest
     if os.path.exists(destination_path):
         return
     
-    spark_session.conf.set("parquet.block.size", str(block_size))
     tables = [t for t in os.listdir(source_path)]
 
     for table in tables:
         parquet_table_path = os.path.join(source_path, table)
         delta_table_path = os.path.join(destination_path, table)
         df = spark_session.read.format('parquet').load(parquet_table_path)
-        writer = df.write.format('delta').mode('overwrite')
+
+        if optimization_technique == 'partitioning' and table in tpcds_partition_map:
+            partition_cols = tpcds_partition_map[table]
+            df = df.repartition(*partition_cols)
+            writer = df.write.format('delta').mode('overwrite').partitionBy(*partition_cols)
+        else:
+            writer = df.write.format('delta').mode('overwrite')
 
         if optimization_technique == 'bloom' and table in tpcds_zorder_map:
             for col in tpcds_zorder_map[table]:
                 writer.option(f"parquet.bloom.filter.enabled#{col}", "true")
                 writer.option(f"parquet.bloom.filter.expected.ndv#{col}", "1000000")
-
-        if optimization_technique == 'partitioning' and table in tpcds_partition_map:
-            writer = writer.partitionBy(*tpcds_partition_map[table])
         
+        writer.option("parquet.block.size", f'{block_size*1048576}mb')
         writer.save(delta_table_path)
 
-        if (optimization_technique == 'zorder'):
+        if optimization_technique == 'zorder' and table in tpcds_zorder_map:
             dt = DeltaTable.forPath(spark_session, delta_table_path)
-            if table in tpcds_zorder_map:
-                try:
-                    z_cols = tpcds_zorder_map[table]
-                    dt.optimize().executeZOrderBy(*z_cols)   
-                except Exception as e:
-                    print(f"Failed to optimize (Z-order) table {table} at {delta_table_path}: {e}")
+            z_cols = tpcds_zorder_map[table]
+            dt.optimize().executeZOrderBy(*z_cols) 
 
 
 def convert_parquet_to_hudi(spark_session: SparkSession, source_path: str, destination_path: str, optimization_technique: str, block_size: int):
@@ -266,19 +265,15 @@ def convert_parquet_to_iceberg(spark_session: SparkSession, source_path: str, na
 
         writer.createOrReplace()
 
-        if optimization_technique == 'zorder':
-            if table in tpcds_zorder_map:
-                try:
-                    z_cols = ', '.join(tpcds_zorder_map[table])
-                    spark_session.sql(
-                        f"""CALL nessie.system.rewrite_data_files(
-                            table => '{iceberg_table}', 
-                            strategy => 'sort', 
-                            sort_order => 'zorder({z_cols})'
-                        )
-                    """)
-                except Exception as e:
-                    print(f'Failed to optimize (Z-order) table {table} at {iceberg_table}: {e}')
+        if optimization_technique == 'zorder' and table in tpcds_partition_map:
+            z_cols = ', '.join(tpcds_zorder_map[table])
+            spark_session.sql(
+                f"""CALL nessie.system.rewrite_data_files(
+                    table => '{iceberg_table}', 
+                    strategy => 'sort', 
+                    sort_order => 'zorder({z_cols})'
+                )
+            """)
 
 def get_datasource(spark_session: SparkSession, format: str, source_path: str, optimization_technique: str, block_size: int) -> str:
     match format:
