@@ -1,6 +1,12 @@
+import datetime
 import os
 import argparse
+import time
+
+import pandas as pd
 from utils import get_datasource, create_spark_session, load_data
+from importlib.resources import files
+from sparkmeasure import StageMetrics
 
 def main(format: str, source_path: str, queries_list: str, number_of_runs: int, queries_repeat: int, optimization_technique: str, block_size: int):
     print(f"\n{'='*40}\nStarting benchmark for: {format}\n{'='*40}")
@@ -13,9 +19,40 @@ Optimization technique: {optimization_technique}
 Block size: {block_size}MiB'''
     )
     print(f"\n{'='*40}")
-    spark_session = create_spark_session(name=f'{format}_session', format=format, master='local[*]', memory=16)    
+    spark_session = create_spark_session(name=f'{format}_session', format=format, master='local[*]', memory=16)
+    
+    instrumentation = []
+    load_stagemetrics = StageMetrics(spark_session)
+    spark_session.sparkContext.setJobGroup("TPCDS", "Load data")
+    startime_string = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    
+    load_stagemetrics.begin()
     current_path = get_datasource(spark_session=spark_session, format=format, source_path=source_path, optimization_technique=optimization_technique, block_size=block_size)
+    load_stagemetrics.end()
+    spark_session.sparkContext.setJobGroup("", "")
 
+    # Collect metrics and timing measurements
+    load_metrics = load_stagemetrics.aggregate_stagemetrics()
+    executorRunTime = round(load_metrics.get('executorRunTime') / 1000, 2)
+    executorCpuTime = round(load_metrics.get('executorCpuTime') / 1000, 2)
+    jvmGCTime = round(load_metrics.get('jvmGCTime') / 1000, 2)
+    elapsedTime = round(load_metrics.get('elapsedTime') / 1000, 2)
+    avgActiveTasks = round(load_metrics.get('executorRunTime') / load_metrics.get('elapsedTime'), 1) if load_metrics.get('elapsedTime') > 0 else 0.0
+
+    # print the timing measurements
+    print("Job finished")
+    print(f"...Start Time = {startime_string}")
+    print(f"...Elapsed Time = {elapsedTime} sec")
+    print(f"...Executors Run Time = {executorRunTime} sec")
+    print(f"...Executors CPU Time = {executorCpuTime} sec")
+    print(f"...Executors JVM GC Time = {jvmGCTime} sec")
+    print(f"...Average Active Tasks = {avgActiveTasks}")
+
+    # append the timing measurements to the list
+    runinfo = {'timestamp': startime_string, 'phase': 'data_loading'}
+    instrumentation.append({**runinfo, **load_metrics})
+
+    # Run the workload
     tpcds = load_data(
         spark_session=spark_session,
         data_path=current_path,
@@ -27,10 +64,21 @@ Block size: {block_size}MiB'''
     )
 
     tpcds.run_TPCDS()
+    
     results_dir = f'results/{format}/{source_path}/{optimization_technique}/{block_size}MiB'
-    os.makedirs(results_dir)
+    os.makedirs(results_dir, exist_ok=True)
+    
+    # Output the data loading metrics
+    load_metrics_file_path = os.path.join(results_dir, 'load_metrics.csv')
+    load_metrics_df = pd.DataFrame(instrumentation)
+    load_metrics_df.to_csv(load_metrics_file_path, index=False)
+    print(f"Data loading metrics saved to {load_metrics_file_path}")
+
+    # Output the TPCDS metrics
     output_file_path = os.path.join(results_dir, 'results.csv')
     tpcds.print_test_results(output_file=output_file_path)
+    print(f"Query execution metrics saved to {output_file_path}")
+    
     spark_session.stop()
 
 if __name__ == '__main__':
