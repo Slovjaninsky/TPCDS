@@ -26,7 +26,10 @@ tpcds_partition_map = {
     "store_sales": ["ss_store_sk"],
     "catalog_sales": ["cs_warehouse_sk"],
     "web_sales": ["ws_web_site_sk"],
-    "inventory": ["inv_warehouse_sk"]
+    "inventory": ["inv_warehouse_sk"],
+    "store_returns": ["sr_store_sk"],
+    "catalog_returns": ["cr_warehouse_sk"],
+    "web_returns": ["wr_web_page_sk"],
 }
 
 tpcds_pk = {
