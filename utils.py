@@ -22,6 +22,13 @@ tpcds_zorder_map = {
     "item": ["i_item_sk"]
 }
 
+tpcds_partition_map = {
+    "store_sales": ["ss_store_sk"],
+    "catalog_sales": ["cs_warehouse_sk"],
+    "web_sales": ["ws_web_site_sk"],
+    "inventory": ["inv_warehouse_sk"]
+}
+
 tpcds_pk = {
     "store_sales": ["ss_ticket_number", "ss_item_sk"],
     "store_returns": ["sr_ticket_number", "sr_item_sk"],
@@ -163,6 +170,9 @@ def convert_parquet_to_delta(spark_session: SparkSession, source_path: str, dest
             for col in tpcds_zorder_map[table]:
                 writer.option(f"parquet.bloom.filter.enabled#{col}", "true")
                 writer.option(f"parquet.bloom.filter.expected.ndv#{col}", "1000000")
+
+        if optimization_technique == 'partitioning' and table in tpcds_partition_map:
+            writer = writer.partitionBy(*tpcds_partition_map[table])
         
         writer.save(delta_table_path)
 
@@ -196,10 +206,8 @@ def convert_parquet_to_hudi(spark_session: SparkSession, source_path: str, desti
             'hoodie.datasource.write.operation': 'bulk_insert',
         }
 
-        index = optimization_technique.upper()
-
-        match index:
-            case 'ZORDER':
+        match optimization_technique:
+            case 'zorder':
                 if table in tpcds_zorder_map:
                     z_cols = ",".join(tpcds_zorder_map[table])
                     hudi_options.update({
@@ -209,7 +217,7 @@ def convert_parquet_to_hudi(spark_session: SparkSession, source_path: str, desti
                         'hoodie.bulkinsert.shuffle.parallelism': '2', 
                         'hoodie.datasource.write.row.writer.enable': 'true'
                     })
-            case 'BLOOM':
+            case 'bloom':
                 if table in tpcds_zorder_map:
                     z_cols = ",".join(tpcds_zorder_map[table])
                     hudi_options.update({
@@ -219,13 +227,12 @@ def convert_parquet_to_hudi(spark_session: SparkSession, source_path: str, desti
                         'hoodie.bloom.index.use.metadata': 'true',
                         'hoodie.metadata.index.bloom.filter.column.list': z_cols
                     })
-            case 'RECORD_INDEX':
-                if table in tpcds_zorder_map:
-                    z_cols = ",".join(tpcds_zorder_map[table])
+            case 'partitioning':
+                if table in tpcds_partition_map:
+                    part_cols = ",".join(tpcds_partition_map[table])
                     hudi_options.update({
-                        'hoodie.metadata.enable': 'true',
-                        'hoodie.metadata.record.index.enable': 'true',
-                        'hoodie.metadata.record.level.index.enable': 'true'
+                        'hoodie.datasource.write.partitionpath.field': part_cols,
+                        'hoodie.datasource.write.hive_style_partitioning': 'true'
                     })
             case _:
                 ...
@@ -250,8 +257,13 @@ def convert_parquet_to_iceberg(spark_session: SparkSession, source_path: str, na
                 properties[f"write.parquet.bloom-filter-enabled.column.{col}"] = "true"
 
         writer = df.writeTo(iceberg_table).using('iceberg')
+
+        if optimization_technique == 'partitioning' and table in tpcds_partition_map:
+            writer = writer.partitionedBy(*tpcds_partition_map[table])
+
         for k, v in properties.items():
             writer = writer.tableProperty(k, v)
+
         writer.createOrReplace()
 
         if optimization_technique == 'zorder':
