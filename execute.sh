@@ -2,7 +2,7 @@
 set -e
 
 SOURCES=("tpcds_1" "tpcds_10" "tpcds_100")
-FORMATS=("parquet" "hudi" "delta")
+FORMATS=( "hudi" "delta" "iceberg")
 OPTIMIZATIONS=("none" "zorder" "bloom" "partitioning")
 BLOCK_SIZES=(64 128 256)
 
@@ -12,8 +12,6 @@ echo "=========================================="
 
 echo -e "\n---> Activating venv"
 source .venv/bin/activate
-echo -e "\n---> Running Nessie catalogue for Iceberg"
-docker run -p 19120:19120 ghcr.io/projectnessie/nessie
 
 for source in "${SOURCES[@]}"; do
     for format in "${FORMATS[@]}"; do

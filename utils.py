@@ -180,7 +180,7 @@ def convert_parquet_to_delta(spark_session: SparkSession, source_path: str, dest
                 writer.option(f"parquet.bloom.filter.enabled#{col}", "true")
                 writer.option(f"parquet.bloom.filter.expected.ndv#{col}", "1000000")
         
-        writer.option("parquet.block.size", f'{block_size*1048576}mb')
+        writer.option("parquet.block.size", f'{int(block_size)}mb')
         writer.save(delta_table_path)
 
         if optimization_technique == 'zorder' and table in tpcds_zorder_map:
@@ -205,7 +205,7 @@ def convert_parquet_to_hudi(spark_session: SparkSession, source_path: str, desti
         hudi_options = {
             'hoodie.table.name': table,
             'hoodie.datasource.write.recordkey.field': hudi_record_key,
-            'hoodie.parquet.block.size': str(block_size*1048576),
+            'hoodie.parquet.block.size': str(int(block_size)*1048576),
             'hoodie.datasource.write.operation': 'bulk_insert',
         }
 
@@ -252,7 +252,7 @@ def convert_parquet_to_iceberg(spark_session: SparkSession, source_path: str, na
         iceberg_table = f'{namespace}.{table}'
         df = spark_session.read.format('parquet').load(parquet_table_path)
         properties = {
-            "write.parquet.row-group-size-bytes": str(block_size * 1048576)
+            "write.parquet.row-group-size-bytes": str(int(block_size)*1048576)
         }
 
         if optimization_technique == 'bloom' and table in tpcds_zorder_map:
@@ -308,6 +308,8 @@ def get_datasource(spark_session: SparkSession, format: str, source_path: str, o
             return source_path
         
 def cleanup_data(spark_session: SparkSession, format: str, path: str):
+    if format == 'parquet':
+        return
     print(f"\n{'='*40}\nInitiating cleanup for: {path}\n{'='*40}")
     try:
         if format == 'iceberg':
