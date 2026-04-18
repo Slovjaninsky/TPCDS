@@ -1,11 +1,9 @@
 import datetime
 import os
 import argparse
-import time
 
 import pandas as pd
-from utils import get_datasource, create_spark_session, load_data
-from importlib.resources import files
+from utils import get_datasource, create_spark_session, load_data, cleanup_data
 from sparkmeasure import StageMetrics
 
 def main(format: str, source_path: str, queries_list: str, number_of_runs: int, queries_repeat: int, optimization_technique: str, block_size: int):
@@ -78,6 +76,9 @@ Block size: {block_size}MiB'''
     output_file_path = os.path.join(results_dir, 'results.csv')
     tpcds.print_test_results(output_file=output_file_path)
     print(f"Query execution metrics saved to {output_file_path}")
+
+    # Cleanup folders and namespace
+    cleanup_data(spark_session, format, current_path)
     
     spark_session.stop()
 

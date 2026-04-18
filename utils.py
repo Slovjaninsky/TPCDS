@@ -1,5 +1,6 @@
 import os
-from pyspark.sql import SparkSession, functions
+import shutil
+from pyspark.sql import SparkSession
 from CustomTPCDS import CustomTPCDS
 from delta import DeltaTable
 
@@ -268,6 +269,7 @@ def convert_parquet_to_iceberg(spark_session: SparkSession, source_path: str, na
 
         writer.createOrReplace()
 
+        # TBD Fix because crashes
         if optimization_technique == 'zorder' and table in tpcds_partition_map:
             z_cols = ', '.join(tpcds_zorder_map[table])
             spark_session.sql(
@@ -305,3 +307,13 @@ def get_datasource(spark_session: SparkSession, format: str, source_path: str, o
         case _:
             print('Unsupported format. Proceeding with parquet\n')
             return source_path
+        
+def cleanup_data(spark_session: SparkSession, format: str, path: str):
+    print(f"\n{'='*40}\nInitiating cleanup for: {path}\n{'='*40}")
+    try:
+        if format == 'iceberg':
+            shutil.rmtree(f'spark-warehouse/iceberg/{path}')
+        else:
+            shutil.rmtree(path)
+    except Exception as e:
+        print(f"Cleanup failed for {path}. Error: {e}")
