@@ -2,7 +2,7 @@
 set -e
 
 SOURCES=("tpcds_1" "tpcds_10" "tpcds_100")
-FORMATS=( "hudi" "delta" "iceberg")
+FORMATS=("parquet" "hudi" "delta" "iceberg")
 OPTIMIZATIONS=("none" "zorder" "bloom" "partitioning")
 BLOCK_SIZES=(64 128 256)
 
