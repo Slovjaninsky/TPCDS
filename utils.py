@@ -108,8 +108,8 @@ def create_spark_session(name: str, format: str, master: str, memory: int) -> Sp
                     ])) \
                 .config("spark.sql.extensions", 
                         ",".join([
-                        "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions",
-                        "org.projectnessie.spark.extensions.NessieSparkSessionExtensions"
+                        "org.projectnessie.spark.extensions.NessieSparkSessionExtensions",
+                        "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions"
                     ])) \
                 .config("spark.sql.catalog.nessie.uri", nessie_url) \
                 .config("spark.sql.catalog.nessie.ref", nessie_branch) \
@@ -269,7 +269,6 @@ def convert_parquet_to_iceberg(spark_session: SparkSession, source_path: str, na
 
         writer.createOrReplace()
 
-        # TBD Fix because crashes
         if optimization_technique == 'zorder' and table in tpcds_partition_map:
             z_cols = ', '.join(tpcds_zorder_map[table])
             spark_session.sql(
