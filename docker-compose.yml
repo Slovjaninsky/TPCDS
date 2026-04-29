@@ -1,0 +1,13 @@
+services:
+  nessie:
+    image: projectnessie/nessie:latest
+    ports:
+      - "19120:19120"
+  tpcds:
+    build: .
+    depends_on:
+      nessie:
+        condition: service_started
+    volumes:
+      - ./all_results:/app/all_results
+      - ./${DATA_DIR}:/app/${DATA_DIR}

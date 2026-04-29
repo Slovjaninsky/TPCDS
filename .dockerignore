@@ -1,0 +1,9 @@
+# .dockerignore
+tpcds_*/
+all_results/
+results*/
+.dockerignore
+.gitignore
+docker-compose.yml
+dockerfile
+README.md

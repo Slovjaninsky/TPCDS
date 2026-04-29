@@ -6,7 +6,7 @@ import pandas as pd
 from utils import get_datasource, create_spark_session, load_data, cleanup_data
 from sparkmeasure import StageMetrics
 
-def main(format: str, source_path: str, queries_list: str, number_of_runs: int, queries_repeat: int, optimization_technique: str, block_size: int):
+def main(format: str, source_path: str, queries_list: str, number_of_runs: int, queries_repeat: int, optimization_technique: str, block_size: int, memory: int, iteration: int):
     print(f"\n{'='*40}\nStarting benchmark for: {format}\n{'='*40}")
     print(
 f'''Data source: {source_path}
@@ -17,7 +17,7 @@ Optimization technique: {optimization_technique}
 Block size: {block_size}MiB'''
     )
     print(f"\n{'='*40}")
-    spark_session = create_spark_session(name=f'{format}_session', format=format, master='local[*]', memory=16)
+    spark_session = create_spark_session(name=f'{format}_session', format=format, master='local[*]', memory=memory)
     
     instrumentation = []
     load_stagemetrics = StageMetrics(spark_session)
@@ -63,7 +63,7 @@ Block size: {block_size}MiB'''
 
     tpcds.run_TPCDS()
     
-    results_dir = f'results/{format}/{source_path}/{optimization_technique}/{block_size}MiB'
+    results_dir = f'all_results/results_{iteration}/{format}/{source_path}/{optimization_technique}/{block_size}MiB'
     os.makedirs(results_dir, exist_ok=True)
     
     # Output the data loading metrics
@@ -94,5 +94,7 @@ if __name__ == '__main__':
     parser.add_argument('-r', '--queries_repeat', default=1)
     parser.add_argument('-o', '--optimization_technique', default='')
     parser.add_argument('-b', '--block_size', default=128)
+    parser.add_argument('-m', '--memory', default=16)
+    parser.add_argument('-i', '--iteration', default=0)
     args = parser.parse_args()
     main(**vars(args))

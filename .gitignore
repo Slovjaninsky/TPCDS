@@ -3,3 +3,4 @@ __pycache__/
 tpcds_*/
 results*
 spark-warehouse/
+dockerfile
