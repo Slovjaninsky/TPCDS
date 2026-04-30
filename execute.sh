@@ -18,7 +18,7 @@ for i in $(seq 1 10); do
             
             if [ "$format" == "parquet" ]; then
                 echo -e "\n---> Running Parquet baseline for $source"
-                DATA_DIR=$source docker compose run --rm tpcds -f "$format" -s "$source" -o "none" -b 128 -i "$i"
+                DATA_DIR=$source docker compose run --rm tpcds -f "$format" -s "$source" -o "none" -b 128 -i "$i" -m 56
                 continue
             fi
 
@@ -33,7 +33,8 @@ for i in $(seq 1 10); do
                         -s "$source" \
                         -o "$opt" \
                         -b "$block" \
-                        -i "$i"
+                        -i "$i" \
+                        -m 56
                     
                     sleep 5
                 done
