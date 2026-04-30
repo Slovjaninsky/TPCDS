@@ -1,5 +1,6 @@
 import os
 import shutil
+import uuid
 from pyspark.sql import SparkSession
 from CustomTPCDS import CustomTPCDS
 from delta import DeltaTable
@@ -299,9 +300,9 @@ def get_datasource(spark_session: SparkSession, format: str, source_path: str, o
             return destination_path
         case 'iceberg':
             if (optimization_technique == ''):
-                namespace = f'{source_path}_{format}_{block_size}MiB'
+                namespace = f'{source_path}_{format}_{block_size}MiB_{uuid.uuid4()}'
             else:
-                namespace = f'{source_path}_{format}_{optimization_technique}_{block_size}MiB'
+                namespace = f'{source_path}_{format}_{optimization_technique}_{block_size}MiB_{uuid.uuid4()}'
             convert_parquet_to_iceberg(spark_session=spark_session, source_path=source_path, namespace=namespace, optimization_technique=optimization_technique, block_size=block_size)
             return namespace
         case _:
