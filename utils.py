@@ -217,9 +217,7 @@ def convert_parquet_to_hudi(spark_session: SparkSession, source_path: str, desti
                     hudi_options.update({
                         'hoodie.layout.optimize.enable': 'true',
                         'hoodie.layout.optimize.strategy': 'z-order',
-                        'hoodie.layout.optimize.curve.column.names': z_cols,
-                        'hoodie.bulkinsert.shuffle.parallelism': '2',
-                        'hoodie.datasource.write.row.writer.enable': 'true'
+                        'hoodie.layout.optimize.curve.column.names': z_cols
                     })
             case 'bloom':
                 if table in tpcds_zorder_map:
@@ -236,8 +234,7 @@ def convert_parquet_to_hudi(spark_session: SparkSession, source_path: str, desti
                     part_cols = ",".join(tpcds_partition_map[table])
                     hudi_options.update({
                         'hoodie.datasource.write.partitionpath.field': part_cols,
-                        'hoodie.datasource.write.hive_style_partitioning': 'true',
-                        'hoodie.bulkinsert.shuffle.parallelism': '200'
+                        'hoodie.datasource.write.hive_style_partitioning': 'true'
                     })
             case _:
                 ...
