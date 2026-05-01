@@ -5,11 +5,13 @@ SOURCES=("tpcds_1" "tpcds_10" "tpcds_100")
 FORMATS=("parquet" "hudi" "delta" "iceberg")
 OPTIMIZATIONS=("none" "zorder" "bloom" "partitioning")
 BLOCK_SIZES=(64 128 256)
+MEMORY=44
 
 echo "=========================================="
 echo "Starting TPCDS Automated Benchmark Suite"
 echo "=========================================="
 
+source .venv/bin/activate
 mkdir -p all_results
 
 for i in $(seq 1 10); do
@@ -18,7 +20,8 @@ for i in $(seq 1 10); do
             
             if [ "$format" == "parquet" ]; then
                 echo -e "\n---> Running Parquet baseline for $source"
-                DATA_DIR=$source docker compose run --rm tpcds -f "$format" -s "$source" -o "none" -b 128 -i "$i" -m 56
+                # DATA_DIR=$source docker compose run --rm tpcds -f "$format" -s "$source" -o "none" -b 128 -i "$i" -m "$MEMORY"
+                python3 main.py -f "$format" -s "$source" -o "none" -b 128 -i "$i" -m "$MEMORY"
                 continue
             fi
 
@@ -28,13 +31,21 @@ for i in $(seq 1 10); do
                     echo -e "\n---> Running Benchmark:"
                     echo "Format: $format | Source: $source | Opt: $opt | Block: ${block}MiB"
                     
-                    DATA_DIR=$source docker compose run --rm tpcds \
+                    # DATA_DIR=$source docker compose run --rm tpcds \
+                    #     -f "$format" \
+                    #     -s "$source" \
+                    #     -o "$opt" \
+                    #     -b "$block" \
+                    #     -i "$i" \
+                    #     -m "$MEMORY"
+
+                    python3 main.py \
                         -f "$format" \
                         -s "$source" \
                         -o "$opt" \
                         -b "$block" \
                         -i "$i" \
-                        -m 56
+                        -m "$MEMORY"
                     
                     sleep 5
                 done
