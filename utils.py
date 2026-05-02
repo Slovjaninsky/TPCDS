@@ -92,7 +92,7 @@ def create_spark_session(name: str, format: str, master: str, memory: int) -> Sp
                 .config("spark.jars.repositories", "https://maven-central.storage-download.googleapis.com/maven2/") \
                 .getOrCreate()
         case 'iceberg':
-            nessie_url = "http://nessie:19120/api/v1"
+            nessie_url = "http://localhost:19120/api/v1"
             nessie_warehouse = f"file:///{os.path.abspath('spark-warehouse/iceberg')}"
             nessie_branch = "main"
             nessie_auth = "NONE"
@@ -297,9 +297,9 @@ def get_datasource(spark_session: SparkSession, format: str, source_path: str, o
             return destination_path
         case 'iceberg':
             if (optimization_technique == ''):
-                namespace = f'{source_path}_{format}_{block_size}MiB_{uuid.uuid4()}'
+                namespace = f'{source_path}_{format}_{block_size}MiB_{uuid.uuid4()}'.replace('-', '_')
             else:
-                namespace = f'{source_path}_{format}_{optimization_technique}_{block_size}MiB_{uuid.uuid4()}'
+                namespace = f'{source_path}_{format}_{optimization_technique}_{block_size}MiB_{uuid.uuid4()}'.replace('-', '_')
             convert_parquet_to_iceberg(spark_session=spark_session, source_path=source_path, namespace=namespace, optimization_technique=optimization_technique, block_size=block_size)
             return namespace
         case _:
