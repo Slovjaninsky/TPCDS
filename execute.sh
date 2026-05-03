@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+# set -e
 
 SOURCES=("tpcds_100" "tpcds_1" "tpcds_10")
 FORMATS=("parquet" "hudi" "delta" "iceberg")
@@ -21,7 +21,7 @@ for source in "${SOURCES[@]}"; do
         if [ "$format" == "parquet" ]; then
             echo -e "\n---> Running Parquet baseline for $source"
             # DATA_DIR=$source docker compose run --rm tpcds -f "$format" -s "$source" -o "none" -b 128 -m "$MEMORY"
-            python3 main.py -f "$format" -s "$source" -o "none" -b 128 -n "$REPEAT_TIMES" -m "$MEMORY"
+            python3 main.py -f "$format" -s "$source" -o "none" -b 128 -n $REPEAT_TIMES -m $MEMORY
             continue
         fi
 
@@ -42,9 +42,9 @@ for source in "${SOURCES[@]}"; do
                     -f "$format" \
                     -s "$source" \
                     -o "$opt" \
-                    -b "$block" \
-                    -n "$REPEAT_TIMES" \
-                    -m "$MEMORY"
+                    -b $block \
+                    -n $REPEAT_TIMES \
+                    -m $MEMORY
                 
                 sleep 5
             done
