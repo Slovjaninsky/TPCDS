@@ -25,13 +25,13 @@ tpcds_zorder_map = {
 }
 
 tpcds_partition_map = {
-    "store_sales": ["ss_store_sk"],
-    "catalog_sales": ["cs_warehouse_sk"],
-    "web_sales": ["ws_web_site_sk"],
-    "inventory": ["inv_warehouse_sk"],
-    "store_returns": ["sr_store_sk"],
-    "catalog_returns": ["cr_warehouse_sk"],
-    "web_returns": ["wr_web_page_sk"],
+    "store_sales": ["ss_sold_date_sk"],
+    "catalog_sales": ["cs_sold_date_sk"],
+    "web_sales": ["ws_sold_date_sk"],
+    "inventory": ["inv_date_sk"],
+    "store_returns": ["sr_returned_date_sk"],
+    "catalog_returns": ["cr_returned_date_sk"],
+    "web_returns": ["wr_returned_date_sk"],
 }
 
 tpcds_pk = {
@@ -171,8 +171,8 @@ def convert_parquet_to_delta(spark_session: SparkSession, source_path: str, dest
 
         if optimization_technique == 'partitioning' and table in tpcds_partition_map:
             partition_cols = tpcds_partition_map[table]
-            df = df.repartition(*partition_cols)
-            writer = df.write.format('delta').mode('overwrite').partitionBy(*partition_cols)
+            df = df.repartitionByRange(200, *partition_cols)
+            writer = df.write.format('delta').partitionBy(*partition_cols).mode('overwrite')
         else:
             writer = df.write.format('delta').mode('overwrite')
 
@@ -239,6 +239,10 @@ def convert_parquet_to_hudi(spark_session: SparkSession, source_path: str, desti
             case _:
                 ...
 
+        if optimization_technique == 'partitioning' and table in tpcds_partition_map:
+            partition_cols = tpcds_partition_map[table]
+            df = df.repartitionByRange(200, *partition_cols)
+
         df.write.format('hudi').options(**hudi_options).mode('overwrite').save(hudi_table_path)
 
 def convert_parquet_to_iceberg(spark_session: SparkSession, source_path: str, namespace: str, optimization_technique: str, block_size: int):
@@ -253,14 +257,15 @@ def convert_parquet_to_iceberg(spark_session: SparkSession, source_path: str, na
         properties = {
             "write.parquet.row-group-size-bytes": str(int(block_size)*1048576)
         }
+        writer = df.writeTo(iceberg_table).using('iceberg')
 
         if optimization_technique == 'bloom' and table in tpcds_zorder_map:
             for col in tpcds_zorder_map[table]:
                 properties[f"write.parquet.bloom-filter-enabled.column.{col}"] = "true"
 
-        writer = df.writeTo(iceberg_table).using('iceberg')
-
         if optimization_technique == 'partitioning' and table in tpcds_partition_map:
+            partition_cols = tpcds_partition_map[table]
+            df = df.repartitionByRange(200, *partition_cols)
             writer = writer.partitionedBy(*tpcds_partition_map[table])
 
         for k, v in properties.items():
