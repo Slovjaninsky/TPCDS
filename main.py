@@ -56,8 +56,8 @@ Block size: {block_size}MiB'''
         data_path=current_path,
         data_format=format,
         queries=queries_list,
-        num_runs=number_of_runs,
-        queries_repeat_times=queries_repeat,
+        num_runs=int(number_of_runs),
+        queries_repeat_times=int(queries_repeat),
         namespace=(current_path if format=='iceberg' else '')
     )
 
