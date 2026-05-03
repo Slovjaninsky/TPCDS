@@ -6,6 +6,7 @@ FORMATS=("parquet" "hudi" "delta" "iceberg")
 OPTIMIZATIONS=("none" "zorder" "bloom" "partitioning")
 BLOCK_SIZES=(64 128 256)
 MEMORY=40
+REPEAT_TIMES=10
 
 echo "=========================================="
 echo "Starting TPCDS Automated Benchmark Suite"
@@ -20,7 +21,7 @@ for source in "${SOURCES[@]}"; do
         if [ "$format" == "parquet" ]; then
             echo -e "\n---> Running Parquet baseline for $source"
             # DATA_DIR=$source docker compose run --rm tpcds -f "$format" -s "$source" -o "none" -b 128 -m "$MEMORY"
-            python3 main.py -f "$format" -s "$source" -o "none" -b 128 -i "$i" -m "$MEMORY"
+            python3 main.py -f "$format" -s "$source" -o "none" -b 128 -n "$REPEAT_TIMES" -m "$MEMORY"
             continue
         fi
 
@@ -42,6 +43,7 @@ for source in "${SOURCES[@]}"; do
                     -s "$source" \
                     -o "$opt" \
                     -b "$block" \
+                    -n "$REPEAT_TIMES" \
                     -m "$MEMORY"
                 
                 sleep 5
