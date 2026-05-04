@@ -211,9 +211,10 @@ def convert_parquet_to_hudi(spark_session: SparkSession, source_path: str, desti
         if optimization_technique == 'zorder' and table in tpcds_zorder_map:
             z_cols = ",".join(tpcds_zorder_map[table])
             hudi_options.update({
+                'hoodie.clustering.inline': 'true',
                 'hoodie.layout.optimize.enable': 'true',
                 'hoodie.layout.optimize.strategy': 'z-order',
-                'hoodie.layout.optimize.column.names': z_cols
+                'hoodie.clustering.plan.strategy.sort.columns': z_cols
             })
 
         if optimization_technique == 'bloom' and table in tpcds_zorder_map:

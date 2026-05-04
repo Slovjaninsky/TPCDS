@@ -5,7 +5,7 @@ SOURCES=("tpcds_100" "tpcds_1" "tpcds_10")
 FORMATS=("parquet" "hudi" "delta" "iceberg")
 OPTIMIZATIONS=("none" "zorder" "bloom" "partitioning")
 BLOCK_SIZES=(64 128 256)
-MEMORY=40
+MEMORY=32
 REPEAT_TIMES=10
 
 echo "=========================================="
