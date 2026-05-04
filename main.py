@@ -6,7 +6,7 @@ import pandas as pd
 from utils import get_datasource, create_spark_session, load_data, cleanup_data
 from sparkmeasure import StageMetrics
 
-def main(format: str, source_path: str, queries_list: str, number_of_runs: int, queries_repeat: int, optimization_technique: str, block_size: int, memory: int, iteration: int):
+def main(format: str, source_path: str, queries_list: str, number_of_runs: int, queries_repeat: int, optimization_technique: str, block_size: int, memory: int, iteration: int, catalogue: str):
     print(f"\n{'='*40}\nStarting benchmark for: {format}\n{'='*40}")
     print(
 f'''Data source: {source_path}
@@ -96,5 +96,6 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--block_size', default=128)
     parser.add_argument('-m', '--memory', default=16)
     parser.add_argument('-i', '--iteration', default=0)
+    parser.add_argument('-c', '--catalogue', default="http://localhost:19120/api/v1")
     args = parser.parse_args()
     main(**vars(args))

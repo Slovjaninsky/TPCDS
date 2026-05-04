@@ -61,7 +61,7 @@ tpcds_pk = {
     "time_dim": ["t_time_sk"],
 }
 
-def create_spark_session(name: str, format: str, master: str, memory: int) -> SparkSession:
+def create_spark_session(name: str, format: str, master: str, memory: int, catalogue: str) -> SparkSession:
 
     match format:
         case 'delta':
@@ -92,7 +92,7 @@ def create_spark_session(name: str, format: str, master: str, memory: int) -> Sp
                 .config("spark.jars.repositories", "https://maven-central.storage-download.googleapis.com/maven2/") \
                 .getOrCreate()
         case 'iceberg':
-            nessie_url = "http://localhost:19120/api/v1"
+            nessie_url = catalogue
             nessie_warehouse = f"file:///{os.path.abspath('spark-warehouse/iceberg')}"
             nessie_branch = "main"
             nessie_auth = "NONE"
