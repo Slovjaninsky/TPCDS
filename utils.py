@@ -220,6 +220,7 @@ def convert_parquet_to_hudi(spark_session: SparkSession, source_path: str, desti
         if optimization_technique == 'bloom' and table in tpcds_zorder_map:
             z_cols = ",".join(tpcds_zorder_map[table])
             hudi_options.update({
+                'hoodie.metadata.bloom.filter.enable': 'true',
                 'hoodie.metadata.index.bloom.filter.enable': 'true',
                 'hoodie.metadata.index.bloom.filter.column.list': z_cols
             })
