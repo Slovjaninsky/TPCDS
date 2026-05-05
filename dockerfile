@@ -1,23 +1,19 @@
 FROM ubuntu:24.04
-ENV DEBIAN_FRONTEND=noninteractive
-
 RUN apt-get update && \
-    apt-get install -y openjdk-11-jdk software-properties-common && \
-    add-apt-repository ppa:deadsnakes/ppa && \
-    apt-get update && \
-    apt-get install -y python3.11 python3.11-venv python3.11-dev && \
+    apt-get install -y software-properties-common && \
+    apt-get install -y openjdk-11-jdk && \
+    apt-get install -y python3 python3-pip python3-venv python3-dev && \
     apt-get clean;
 
 ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
-ENV PATH="${JAVA_HOME}/bin:${PATH}"
+ENV VIRTUAL_ENV=/opt/venv
+RUN python3 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:${JAVA_HOME}/bin:${PATH}"
 
 WORKDIR /app
 COPY . /app
 
-RUN python3.11 -m venv ./.venv
-ENV PATH="./.venv/bin:$PATH"
+RUN pip install --upgrade pip
+RUN pip install --no-cache-dir -r requirements.txt
 
-# RUN python3.11 -m pip install --upgrade pip --break-system-packages \
-#     && python3.11 -m pip install --no-cache-dir -r requirements.txt --break-system-packages
-
-ENTRYPOINT ["./.venv/bin/python3.11", "main.py"]
+ENTRYPOINT ["python3", "/app/main.py"]

@@ -11,3 +11,4 @@ services:
     volumes:
       - ./all_results:/app/all_results
       - ./${DATA_DIR}:/app/${DATA_DIR}
+      - ./.venv:/app/.venv

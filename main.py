@@ -17,7 +17,7 @@ Optimization technique: {optimization_technique}
 Block size: {block_size}MiB'''
     )
     print(f"\n{'='*40}")
-    spark_session = create_spark_session(name=f'{format}_session', format=format, master='local[*]', memory=memory)
+    spark_session = create_spark_session(name=f'{format}_session', format=format, master='local[*]', memory=memory, catalogue=catalogue)
     
     instrumentation = []
     load_stagemetrics = StageMetrics(spark_session)
