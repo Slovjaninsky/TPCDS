@@ -12,7 +12,7 @@ echo "=========================================="
 echo "Starting TPCDS Automated Benchmark Suite"
 echo "=========================================="
 
-source .venv/bin/activate
+# source .venv/bin/activate
 mkdir -p all_results
 
 for source in "${SOURCES[@]}"; do
@@ -20,7 +20,7 @@ for source in "${SOURCES[@]}"; do
         
         if [ "$format" == "parquet" ]; then
             echo -e "\n---> Running Parquet baseline for $source"
-            DATA_DIR=$source docker compose run --rm tpcds -f "$format" -s "$source" -o "none" -b 128 -n $REPEAT_TIMES -m "$MEMORY" -c "http://nessie:19120/api/v1"
+            DATA_DIR=$source docker compose run --rm tpcds -f "$format" -s "$source" -o "none" -b 128 -n $REPEAT_TIMES -m $MEMORY -c "http://nessie:19120/api/v1"
             # python3 main.py -f "$format" -s "$source" -o "none" -b 128 -n $REPEAT_TIMES -m $MEMORY
             continue
         fi
@@ -37,7 +37,7 @@ for source in "${SOURCES[@]}"; do
                     -o "$opt" \
                     -b "$block" \
                     -n $REPEAT_TIMES \
-                    -m "$MEMORY" \
+                    -m $MEMORY \
                     -c "http://nessie:19120/api/v1"
 
                 # python3 main.py \
