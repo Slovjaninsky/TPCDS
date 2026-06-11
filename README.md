@@ -10,7 +10,7 @@ Libraries list in `requirements.txt`,
 Additionally, to run workloads on Iceberg, the [Nessie](https://projectnessie.org/guides/docker/) catalogue engine should be running on `localhost:19120`.
 
 ### Workload execution
-`main.py [-h] [-f FORMAT] [-s SOURCE_PATH] [-q QUERIES_LIST] [-n NUMBER_OF_RUNS] [-r QUERIES_REPEAT] [-o OPTIMIZATION_TECHNIQUE] [-b BLOCK_SIZE]`
+`main.py [-h] [-f FORMAT] [-s SOURCE_PATH] [-q QUERIES_LIST] [-n NUMBER_OF_RUNS] [-r QUERIES_REPEAT] [-o OPTIMIZATION_TECHNIQUE] [-b BLOCK_SIZE] [-m MEMORY] [-i ITERATION] [-c CATALOG]`
 
 Formats: `parquet` (default), `delta`, `hudi`, `iceberg`.
 
@@ -27,4 +27,12 @@ Optimization technique: string. Default: none. Available optimization techniques
 
 Block size: integer. Table block size in MiB. Default: `128`.
 
-For example, `main.py -f delta -s tpcds_10 -q all`, `main.py -f hudi -o bloom` or `main.py -f iceberg -s tpcds_10 -q "q1, q2, q3" -n 3 -r 5`
+Memory: integer. RAM memory size in GB assigned to executors. Default: `16`.
+
+Iteration: integer. The number assigned to the folder `results_iteration` within `all_results`. Default: `0`.
+
+Catalogue: string. The URL to the catalog for Iceberg workloads. Default: `http://localhost:19120/api/v1`.
+
+For example, `main.py -f delta -s tpcds_10 -q all`, `main.py -f hudi -o bloom` or `main.py -f iceberg -s tpcds_10 -q "q1, q2, q3" -n 3 -r 5`.
+
+Additionally, Bash scripts `execute.sh` and `execute_docker.sh` are created to automate the experiments locally or inside Docker containers.

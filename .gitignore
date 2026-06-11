@@ -2,5 +2,4 @@
 .venv - Copy/
 __pycache__/
 tpcds_*/
-results*
 spark-warehouse/
